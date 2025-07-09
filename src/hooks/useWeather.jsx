@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { LocationContext } from "../contexts";
 
 export default function useWeather() {
     const [weatherData, setWeatherData] = useState({
@@ -10,7 +11,7 @@ export default function useWeather() {
         humidity: "",
         cloudPercentage: "",
         wind: "",
-        time: "",
+
         longitude: "",
         latitude: "",
     });
@@ -19,6 +20,7 @@ export default function useWeather() {
         state: false,
         message: "",
     });
+    const { selectedLocation } = useContext(LocationContext) || {};
 
     const fetchWeatherData = async (longitude, latitude) => {
         try {
@@ -37,11 +39,10 @@ export default function useWeather() {
                 throw new Error(errorMessage);
             }
             const data = await response.json();
-            console.log("API response -", data);
 
             const updatedWeatherData = {
                 ...weatherData,
-                location: data?.name,
+                location: data?.name || selectedLocation.location,
                 climate: data?.weather?.[0],
                 temperature: data?.main?.temp,
                 maxTemperature: data?.main?.temp_max,
@@ -49,6 +50,9 @@ export default function useWeather() {
                 humidity: data?.main?.humidity,
                 cloudPercentage: data?.clouds?.all,
                 wind: data?.wind?.speed,
+
+                longitude: data?.coord.lon,
+                latitude: data?.coord.lat,
             };
             setWeatherData(updatedWeatherData);
         } catch (error) {
@@ -57,7 +61,7 @@ export default function useWeather() {
         } finally {
             setLoading({
                 ...loading,
-                state: true,
+                state: false,
                 message: "",
             });
         }
@@ -69,15 +73,20 @@ export default function useWeather() {
             state: true,
             message: "finding location...",
         });
-        navigator.geolocation.getCurrentPosition((position) => {
-            console.log(position.coords.longitude, position.coords.latitude);
-
+        if (selectedLocation.latitude && selectedLocation.longitude) {
             fetchWeatherData(
-                position.coords.longitude,
-                position.coords.latitude
+                selectedLocation.latitude,
+                selectedLocation.longitude
             );
-        });
-    }, []);
+        } else {
+            navigator.geolocation.getCurrentPosition((position) => {
+                fetchWeatherData(
+                    position.coords.longitude,
+                    position.coords.latitude
+                );
+            });
+        }
+    }, [selectedLocation.latitude, selectedLocation.longitude]);
     return {
         weatherData,
         loading,
